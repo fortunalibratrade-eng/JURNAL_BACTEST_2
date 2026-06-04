@@ -393,10 +393,10 @@ async function loadData() {
   var types = ['candle', 'meca', 'v2', 'v3'];
   var ids = { candle:'lsCandle', meca:'lsMeca', v2:'lsV2', v3:'lsV3' };
   var paths = {
-    candle: '../data/DATA_MENTAH_10000_CANDEL_M5.json',
-    meca: '../data/HASIL_MECA_BOT_10000_CANDEL_M5.json',
-    v2: '../data/HASIL_MOMENTUM_V2_10000_CANDEL_M5.json',
-    v3: '../data/HASIL_MOMENTUM_V3_10000_CANDEL_M5.json'
+    candle: 'data/DATA_MENTAH_10000_CANDEL_M5.json',
+    meca: 'data/HASIL_MECA_BOT_10000_CANDEL_M5.json',
+    v2: 'data/HASIL_MOMENTUM_V2_10000_CANDEL_M5.json',
+    v3: 'data/HASIL_MOMENTUM_V3_10000_CANDEL_M5.json'
   };
 
   var results = await Promise.all(types.map(function(t) {
