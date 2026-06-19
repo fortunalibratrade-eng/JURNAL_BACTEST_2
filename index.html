@@ -1616,7 +1616,7 @@ function updateStatsNote(){
 async function loadData(){
   var ts=Date.now(); var tasks=[]; var detail=[];
   tasks.push(
-    fetch('../data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
+    fetch('data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
       .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
       .then(function(d){G.candles=d;G.pipFac=calcPipFac();return{ok:true,n:d.length,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
       .catch(function(e){return{ok:false,err:e.message,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
