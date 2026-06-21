@@ -1079,7 +1079,7 @@ body.light #header {
         </button>
         <input type="file" id="fileInp" accept=".json" multiple style="display:none" onchange="handleFileUpload(event)">
         <button class="btn" onclick="loadData()">
-          <i class="fas fa-rotate c-gold"></i> Muat dari ../data/
+          <i class="fas fa-rotate c-gold"></i> Muat dari data/
         </button>
       </div>
     </div>
@@ -1786,7 +1786,7 @@ function updateStatsNote(){
 async function loadData(){
   var ts=Date.now(); var tasks=[]; var detail=[];
   tasks.push(
-    fetch('../data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
+    fetch('data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
       .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
       .then(function(d){G.candles=d;G.pipFac=calcPipFac();return{ok:true,n:d.length,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
       .catch(function(e){return{ok:false,err:e.message,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
@@ -1796,7 +1796,7 @@ async function loadData(){
     Object.keys(SIM_MODES).forEach(function(sim){
       var fname='HASIL_'+fk+'_'+sim+'_10000_CANDEL_M5.json';
       tasks.push(
-        fetch('../data/'+fname+'?t='+ts)
+        fetch('data/'+fname+'?t='+ts)
           .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
           .then(function(d){G.raw[k][sim]=d;return{ok:true,n:d.length,name:fname,k,sim};})
           .catch(function(e){return{ok:false,err:e.message,name:fname,k,sim};})
