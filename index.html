@@ -1079,7 +1079,7 @@ body.light #header {
         </button>
         <input type="file" id="fileInp" accept=".json" multiple style="display:none" onchange="handleFileUpload(event)">
         <button class="btn" onclick="loadData()">
-          <i class="fas fa-rotate c-gold"></i> Muat dari data/
+          <i class="fas fa-rotate c-gold"></i> Muat dari ../data/
         </button>
       </div>
     </div>
@@ -1257,12 +1257,13 @@ body.light #header {
           <span style="color:var(--blue)">--- ENTRY</span>
           <span style="color:var(--red)">--- SL</span>
           <span class="c-muted">| Klik candle emas → lihat detail</span>
+          <span class="c-muted">| Geser sumbu harga/waktu untuk zoom · dobel-klik sumbu untuk reset</span>
         </div>
         <div class="flex items-c gap-2">
           <button class="btn btn-icon" onclick="doZoom(-1)" aria-label="Zoom out"><i class="fas fa-minus"></i></button>
           <span class="text-xs mono c-muted" id="zoomLbl">100%</span>
           <button class="btn btn-icon" onclick="doZoom(1)" aria-label="Zoom in"><i class="fas fa-plus"></i></button>
-          <button class="btn" onclick="doReset()"><i class="fas fa-expand"></i> Reset</button>
+          <button class="btn" onclick="doFit()" title="Sesuaikan tampilan chart (seperti Fit Content di TradingView)"><i class="fas fa-compress"></i> Fit</button>
         </div>
       </div>
     </div>
@@ -1399,7 +1400,12 @@ var G = {
     drag:false, dx:0, doff:0,
     mx:-1, my:-1, hi:-1, hl:null,
     vel:0, lastDx:0, animId:null,
-    pinch:false, pinchDist:0, pinchOff:0, pinchCw:0
+    pinch:false, pinchDist:0, pinchOff:0, pinchCw:0,
+    // price (Y) axis — independent manual zoom/pan, TradingView-style
+    priceScale:1, priceOffsetPx:0,
+    dragMode:null,      // null | 'pan' | 'priceAxis' | 'timeAxis'
+    dyStart:0, priceScaleStart:1, priceOffsetStart:0,
+    pinchModeY:false, pinchDistY:0, pinchScaleStart:1
   },
   // Constants
   pipFac: 10,
@@ -1644,6 +1650,20 @@ function resCol(r){
   if(r==='BEP')return 'var(--gold)'; if(r==='RUNNING')return 'var(--blue)';
   if(r==='PENDING')return 'var(--purple)'; return 'var(--text3)';
 }
+/* Canvas 2D context does NOT resolve CSS custom properties (var(--x)) when
+   assigned to fillStyle/strokeStyle — the browser silently ignores the
+   invalid color and keeps whatever was set before, which made entry labels
+   on the chart render with empty/wrong text color. This resolver returns a
+   concrete hex value safe for canvas drawing, mirroring the active theme. */
+function resColHex(r){
+  var dark = G.theme!=='light';
+  if(r==='WIN')return dark?'#16d9a8':'#048a6f';
+  if(r==='LOSS')return dark?'#ff5470':'#cf2c4e';
+  if(r==='BEP')return dark?'#f2c14e':'#ad7d0a';
+  if(r==='RUNNING')return dark?'#5b9bf7':'#2f5fce';
+  if(r==='PENDING')return dark?'#b18cf9':'#7350cf';
+  return dark?'#5b6188':'#7882ab';
+}
 function rrLabel(e){
   if(!e) return '—';
   var r=eRes(e);
@@ -1766,7 +1786,7 @@ function updateStatsNote(){
 async function loadData(){
   var ts=Date.now(); var tasks=[]; var detail=[];
   tasks.push(
-    fetch('data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
+    fetch('../data/DATA_MENTAH_10000_CANDEL_M5.json?t='+ts)
       .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
       .then(function(d){G.candles=d;G.pipFac=calcPipFac();return{ok:true,n:d.length,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
       .catch(function(e){return{ok:false,err:e.message,name:'DATA_MENTAH_10000_CANDEL_M5.json'};})
@@ -1776,7 +1796,7 @@ async function loadData(){
     Object.keys(SIM_MODES).forEach(function(sim){
       var fname='HASIL_'+fk+'_'+sim+'_10000_CANDEL_M5.json';
       tasks.push(
-        fetch('data/'+fname+'?t='+ts)
+        fetch('../data/'+fname+'?t='+ts)
           .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
           .then(function(d){G.raw[k][sim]=d;return{ok:true,n:d.length,name:fname,k,sim};})
           .catch(function(e){return{ok:false,err:e.message,name:fname,k,sim};})
@@ -2993,6 +3013,7 @@ function initChart(){
   cvs.addEventListener('mousemove',onMM);
   cvs.addEventListener('mouseup',onMU);
   cvs.addEventListener('mouseleave',onML);
+  cvs.addEventListener('dblclick',onDblClick);
   cvs.addEventListener('click',onChartClick);
   cvs.addEventListener('touchstart',onTouchStart,{passive:false});
   cvs.addEventListener('touchmove',onTouchMove,{passive:false});
@@ -3043,7 +3064,15 @@ function drawChart(){
   }
   var pR=mxP-mnP; if(pR===0)pR=1;
   mnP-=pR*.07; mxP+=pR*.07; if(mxV<1)mxV=1;
-  function pY(p){return aT+(1-(p-mnP)/(mxP-mnP))*aH;}
+  // Apply manual price-axis zoom (priceScale) and pan (priceOffsetPx) on top of the
+  // auto-fit range, TradingView-style: scale>1 zooms in around the vertical center,
+  // priceOffsetPx shifts the visible window up/down in pixel space.
+  var midP=(mnP+mxP)/2;
+  var halfRange=(mxP-mnP)/2/Math.max(0.05,c.priceScale);
+  mnP=midP-halfRange; mxP=midP+halfRange;
+  var pxShift=c.priceOffsetPx||0;
+  function pY(p){return aT+(1-(p-mnP)/(mxP-mnP))*aH+pxShift;}
+  function pInv(y){return mnP+(1-((y-pxShift)-aT)/aH)*(mxP-mnP);}
   function iX(i){return aL+(i-c.off)*uw+c.cw/2;}
 
   // Grid
@@ -3134,7 +3163,7 @@ function drawChart(){
     ctx.font='bold 9px JetBrains Mono'; var curX=iX(ci)-20;
     entsToShow.forEach(function(ek){
       var e5=setup.hasil_simulasi&&setup.hasil_simulasi[ek]; var r5=e5?eRes(e5):'—';
-      var col=resCol(r5); var sl=e5&&e5.sl_level?e5.sl_level:'—';
+      var col=resColHex(r5); var sl=e5&&e5.sl_level?e5.sl_level:'—';
       var lbl='E'+ek+'_'+sl; var lw=ctx.measureText(lbl).width+14;
       var lx=Math.max(aL+2,Math.min(curX,aR-lw-2));
       ctx.fillStyle='rgba(10,12,20,.9)'; ctx.beginPath();
@@ -3174,7 +3203,7 @@ function drawChart(){
     ctx.beginPath(); ctx.moveTo(c.mx,aT); ctx.lineTo(c.mx,aB); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(aL,c.my); ctx.lineTo(aR,c.my); ctx.stroke();
     ctx.setLineDash([]);
-    var hoverP=mnP+(1-(c.my-aT)/aH)*(mxP-mnP);
+    var hoverP=pInv(c.my);
     ctx.fillStyle=tc.boxbg; ctx.fillRect(aR+1,c.my-10,PAD.r-2,20);
     ctx.fillStyle=tc.boxfg; ctx.font='10px JetBrains Mono'; ctx.textAlign='left';
     ctx.fillText(hoverP.toFixed(3),aR+5,c.my+4);
@@ -3243,33 +3272,149 @@ function clickMomLabel(time,event){
 
 function onWheel(e){
   e.preventDefault(); var c=G.ch;
+  var zone=hitZone(c.mx,c.my);
+  if(zone==='priceAxis'){
+    // Scroll on the price axis zooms the Y scale, TradingView-style
+    var delta=e.deltaY>0?-0.08:0.08;
+    c.priceScale=Math.max(0.15,Math.min(8,c.priceScale*(1+delta)));
+    drawChart(); return;
+  }
   var delta=e.deltaY>0?-0.8:0.8;
   var oldW=c.cw; c.cw=Math.max(2,Math.min(40,c.cw+delta));
   var newU=c.cw+c.gap, oldU=oldW+c.gap;
   var relX=c.mx-PAD.l; var cm=c.off+relX/oldU;
   c.off=cm-relX/newU; if(c.off<0)c.off=0; drawChart();
 }
-function onMD(e){stopKinetic();G.ch.drag=true;G.ch.dx=e.clientX;G.ch.doff=G.ch.off;G.ch.lastDx=e.clientX;cvs.style.cursor='grabbing';}
+/* Determine which interaction zone a point falls in: the price axis (right strip),
+   the time axis (bottom strip), or the main pan area (everything else). */
+function hitZone(mx,my){
+  var aR=cW-PAD.r, aB=cH-PAD.b-PAD.vol;
+  if(mx>=aR) return 'priceAxis';
+  if(my>=aB) return 'timeAxis';
+  return 'pan';
+}
+function cursorForZone(zone){
+  if(zone==='priceAxis') return 'ns-resize';
+  if(zone==='timeAxis') return 'ew-resize';
+  return 'grab';
+}
+function onMD(e){
+  stopKinetic();
+  var r=cvs.getBoundingClientRect(); var mx=e.clientX-r.left, my=e.clientY-r.top;
+  var c=G.ch; var zone=hitZone(mx,my);
+  c.drag=true; c.dragMode=zone==='priceAxis'?'priceAxis':(zone==='timeAxis'?'timeAxis':'pan');
+  c.dx=e.clientX; c.dyStart=e.clientY;
+  c.doff=c.off; c.lastDx=e.clientX;
+  c.priceScaleStart=c.priceScale; c.priceOffsetStart=c.priceOffsetPx; c.cwStart=c.cw;
+  cvs.style.cursor='grabbing';
+}
 function onMM(e){
   var r=cvs.getBoundingClientRect(); var c=G.ch;
   c.mx=e.clientX-r.left; c.my=e.clientY-r.top;
-  if(c.drag){var dx=e.clientX-c.dx;var u=c.cw+c.gap;c.off=c.doff-dx/u;if(c.off<0)c.off=0;c.vel=(e.clientX-c.lastDx)/u;c.lastDx=e.clientX;}
+  if(c.drag){
+    if(c.dragMode==='priceAxis'){
+      // Vertical drag on price axis = zoom Y (drag up = zoom in, drag down = zoom out)
+      var dy=e.clientY-c.dyStart;
+      c.priceScale=Math.max(0.15,Math.min(8,c.priceScaleStart*Math.exp(-dy*0.006)));
+    } else if(c.dragMode==='timeAxis'){
+      // Horizontal drag on time axis = zoom X (drag right = zoom out, drag left = zoom in)
+      var dxT=e.clientX-c.dx;
+      c.cw=Math.max(2,Math.min(40,c.cwStart*Math.exp(-dxT*0.01)));
+    } else {
+      // Free pan: drag in any direction moves both time (X) and price (Y)
+      var dx=e.clientX-c.dx; var u=c.cw+c.gap;
+      c.off=c.doff-dx/u; if(c.off<0)c.off=0;
+      var dyP=e.clientY-c.dyStart;
+      c.priceOffsetPx=c.priceOffsetStart+dyP;
+      c.vel=(e.clientX-c.lastDx)/u; c.lastDx=e.clientX;
+    }
+  } else {
+    cvs.style.cursor=cursorForZone(hitZone(c.mx,c.my));
+  }
   var u=c.cw+c.gap; c.hi=Math.floor((c.mx-PAD.l)/u+c.off);
   if(c.hi<0)c.hi=0; if(c.hi>=G.candles.length)c.hi=G.candles.length-1;
   drawChart();
 }
-function onMU(){if(G.ch.drag)startKinetic();G.ch.drag=false;cvs.style.cursor='crosshair';}
-function onML(){G.ch.drag=false;G.ch.mx=-1;G.ch.my=-1;G.ch.hi=-1;cvs.style.cursor='crosshair';document.getElementById('ohlcBar').innerHTML='';drawChart();}
+function onMU(){
+  var c=G.ch;
+  if(c.drag&&c.dragMode==='pan')startKinetic();
+  c.drag=false; c.dragMode=null;
+  cvs.style.cursor=cursorForZone(hitZone(c.mx,c.my));
+}
+function onML(){G.ch.drag=false;G.ch.dragMode=null;G.ch.mx=-1;G.ch.my=-1;G.ch.hi=-1;cvs.style.cursor='crosshair';document.getElementById('ohlcBar').innerHTML='';drawChart();}
+function onDblClick(e){
+  var r=cvs.getBoundingClientRect(); var mx=e.clientX-r.left, my=e.clientY-r.top;
+  var zone=hitZone(mx,my); var c=G.ch;
+  if(zone==='priceAxis'){ c.priceScale=1; c.priceOffsetPx=0; drawChart(); }
+  else if(zone==='timeAxis'){ doFit(); }
+}
 function startKinetic(){var c=G.ch;if(Math.abs(c.vel)<0.05)return;c.animId=requestAnimationFrame(kineticStep);}
 function kineticStep(){var c=G.ch;c.vel*=0.91;c.off-=c.vel;if(c.off<0)c.off=0;drawChart();if(Math.abs(c.vel)>0.02)c.animId=requestAnimationFrame(kineticStep);}
 function stopKinetic(){if(G.ch.animId){cancelAnimationFrame(G.ch.animId);G.ch.animId=null;}}
-function onTouchStart(e){e.preventDefault();stopKinetic();var c=G.ch;if(e.touches.length===1){c.drag=true;c.dx=e.touches[0].clientX;c.doff=c.off;c.lastDx=e.touches[0].clientX;c.vel=0;}else if(e.touches.length===2){c.drag=false;c.pinch=true;c.pinchDist=tDist(e.touches);c.pinchCw=c.cw;c.pinchOff=c.off;}}
-function onTouchMove(e){e.preventDefault();var c=G.ch;if(e.touches.length===1&&c.drag){var dx=e.touches[0].clientX-c.dx;var u=c.cw+c.gap;c.off=c.doff-dx/u;if(c.off<0)c.off=0;c.vel=(e.touches[0].clientX-c.lastDx)/u;c.lastDx=e.touches[0].clientX;drawChart();}else if(e.touches.length===2&&c.pinch){var d=tDist(e.touches);var sc=d/c.pinchDist;var md=tMid(e.touches);var r=cvs.getBoundingClientRect();var midX=md.x-r.left;var newCw=Math.max(2,Math.min(40,c.pinchCw*sc));var oldU=c.pinchCw+c.gap;var newU=newCw+c.gap;var relX=midX-PAD.l;var cm=c.pinchOff+relX/oldU;c.cw=newCw;c.off=cm-relX/newU;if(c.off<0)c.off=0;drawChart();}}
-function onTouchEnd(e){var c=G.ch;if(c.drag&&e.touches.length===0)startKinetic();c.drag=false;c.pinch=false;}
+function onTouchStart(e){
+  e.preventDefault();stopKinetic();var c=G.ch;
+  if(e.touches.length===1){
+    var r=cvs.getBoundingClientRect(); var mx=e.touches[0].clientX-r.left, my=e.touches[0].clientY-r.top;
+    var zone=hitZone(mx,my);
+    c.drag=true; c.dragMode=zone==='priceAxis'?'priceAxis':(zone==='timeAxis'?'timeAxis':'pan');
+    c.dx=e.touches[0].clientX; c.dyStart=e.touches[0].clientY;
+    c.doff=c.off; c.lastDx=e.touches[0].clientX; c.vel=0;
+    c.priceScaleStart=c.priceScale; c.priceOffsetStart=c.priceOffsetPx; c.cwStart=c.cw;
+  }else if(e.touches.length===2){
+    c.drag=false;c.pinch=true;c.pinchDist=tDist(e.touches);c.pinchCw=c.cw;c.pinchOff=c.off;
+    c.pinchDistY=tDistY(e.touches); c.pinchScaleStart=c.priceScale;
+  }
+}
+function onTouchMove(e){
+  e.preventDefault();var c=G.ch;
+  if(e.touches.length===1&&c.drag){
+    if(c.dragMode==='priceAxis'){
+      var dy=e.touches[0].clientY-c.dyStart;
+      c.priceScale=Math.max(0.15,Math.min(8,c.priceScaleStart*Math.exp(-dy*0.006)));
+    } else if(c.dragMode==='timeAxis'){
+      var dxT=e.touches[0].clientX-c.dx;
+      c.cw=Math.max(2,Math.min(40,c.cwStart*Math.exp(-dxT*0.01)));
+    } else {
+      var dx=e.touches[0].clientX-c.dx;var u=c.cw+c.gap;
+      c.off=c.doff-dx/u;if(c.off<0)c.off=0;
+      var dyP=e.touches[0].clientY-c.dyStart;
+      c.priceOffsetPx=c.priceOffsetStart+dyP;
+      c.vel=(e.touches[0].clientX-c.lastDx)/u;c.lastDx=e.touches[0].clientX;
+    }
+    drawChart();
+  }else if(e.touches.length===2&&c.pinch){
+    var d=tDist(e.touches);var sc=d/c.pinchDist;var md=tMid(e.touches);var r=cvs.getBoundingClientRect();var midX=md.x-r.left;
+    var newCw=Math.max(2,Math.min(40,c.pinchCw*sc));var oldU=c.pinchCw+c.gap;var newU=newCw+c.gap;var relX=midX-PAD.l;var cm=c.pinchOff+relX/oldU;
+    c.cw=newCw;c.off=cm-relX/newU;if(c.off<0)c.off=0;
+    // Two-finger vertical spread also scales price axis, like TradingView pinch
+    var dY=tDistY(e.touches); var scY=dY/Math.max(1,c.pinchDistY);
+    c.priceScale=Math.max(0.15,Math.min(8,c.pinchScaleStart*scY));
+    drawChart();
+  }
+}
+function onTouchEnd(e){var c=G.ch;if(c.drag&&c.dragMode==='pan'&&e.touches.length===0)startKinetic();c.drag=false;c.dragMode=null;c.pinch=false;}
 function tDist(ts){var dx=ts[0].clientX-ts[1].clientX,dy=ts[0].clientY-ts[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+function tDistY(ts){return Math.abs(ts[0].clientY-ts[1].clientY)||1;}
 function tMid(ts){return{x:(ts[0].clientX+ts[1].clientX)/2,y:(ts[0].clientY+ts[1].clientY)/2};}
 function doZoom(d){var c=G.ch;var mc=(cW/2-PAD.l)/(c.cw+c.gap)+c.off;c.cw=Math.max(2,Math.min(40,c.cw+d*0.8));c.off=mc-(cW/2-PAD.l)/(c.cw+c.gap);if(c.off<0)c.off=0;drawChart();}
-function doReset(){G.ch.off=0;G.ch.cw=8;G.ch.hl=null;drawChart();}
+/* "Fit" — like TradingView's reset-scale button: re-center the view so all
+   currently relevant candles are nicely framed, and clear manual price-axis
+   zoom/pan so the Y axis goes back to auto-fit. */
+function doFit(){
+  var c=G.ch;
+  c.priceScale=1; c.priceOffsetPx=0;
+  c.cw=8; c.gap=2; c.hl=null;
+  var D=G.candles;
+  if(D.length){
+    var aW=cW-PAD.l-PAD.r;
+    var visCount=Math.max(10,Math.floor(aW/(c.cw+c.gap)));
+    c.off=Math.max(0,D.length-visCount);
+  } else {
+    c.off=0;
+  }
+  drawChart();
+}
+function doReset(){ doFit(); }
 
 /* ══════════════════════════════
    CLOCK
