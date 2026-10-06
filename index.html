@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Backtest Journal</title>
+<meta name="theme-color" content="#e0e5ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#2a2e35" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Backtest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📊%3C/text%3E%3C/svg%3E">
 <style>
 :root{--bg:#e0e5ec;--ink:#3d4852;--mut:#7b8794;--sd:#a3b1c6;--sl:#fff;--line:rgba(128,128,128,.3);--acc:#0e7490;--win:#15803d;--loss:#dc2626;--be:#64748b;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#2a2e35;--ink:#e6e9ef;--mut:#9aa3b2;--sd:#1a1d22;--sl:#3a404a;--acc:#22d3ee;--win:#4ade80;--loss:#f87171;--be:#94a3b8;color-scheme:dark}}
@@ -58,6 +64,7 @@ h3{font-size:.9rem;margin:18px 0 6px;color:var(--acc)}
 .imp{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}.imp select{flex:1 1 190px;width:auto}.imp button{flex:1 1 140px}
 .pst{margin-bottom:14px;font-size:.85rem}.pst summary{cursor:pointer;color:var(--mut);padding:6px 0}
 .pst textarea{display:block;width:100%;margin:8px 0 12px;padding:12px;border:0;border-radius:14px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;resize:vertical;box-shadow:inset 5px 5px 10px var(--sd),inset -5px -5px 10px var(--sl)}
+#ai textarea{display:block;width:100%;margin-top:8px;padding:10px;border:0;border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px;box-shadow:inset 3px 3px 6px var(--sd),inset -3px -3px 6px var(--sl)}
 @media(max-width:640px){
 body{padding-top:14px}
 h1{font-size:1.2rem}
@@ -136,8 +143,8 @@ td:last-child:not([colspan]){display:block;padding-top:8px}td:last-child button{
 <div class="card"><h2>🧪 Evaluasi Performa</h2><div id="eval"></div></div>
 <div class="card">
 <div class="hd"><h2>🤖 Analisis AI</h2><div class="btns" style="margin:0"><button id="aibtn" disabled>✨ Analisis Detail</button><button id="aistop" hidden>⏹ Stop</button></div></div>
-<p class="mut" style="margin:0;font-size:.8rem">AI membaca seluruh trade, area, jam, dan statistikmu lalu menulis evaluasi lengkap. Memakai kuota Claude milikmu; hasil bersifat edukatif, bukan nasihat keuangan.</p>
-<div id="ai"><p class="mut">Klik "Analisis Detail" untuk memulai.</p></div>
+<p class="mut" style="margin:0;font-size:.8rem">Tombol ini menyalin prompt analisis lengkap (semua trade, area, jam, dan statistik). Tempel ke Claude atau AI lain untuk evaluasi super detail. Hasil bersifat edukatif, bukan nasihat keuangan.</p>
+<div id="ai"><p class="mut">Klik tombol di atas untuk memulai.</p></div>
 </div>
 </div>
 
@@ -248,12 +255,13 @@ $('mm').addEventListener('input',()=>clamp($('mm'),59));
 setTime(nowL());
 
 // export
-let DL=null;
-(async()=>{
-  try{DL=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){DL=null}
-  if(DL){$('xjson').disabled=false;$('xcsv').disabled=false}
-  else{$('xjson').title=$('xcsv').title='Ekspor tidak tersedia di tampilan ini'}
-})();
+const DL={async save({filename,data}){
+  const mime=filename.endsWith('.json')?'application/json':'text/csv';
+  const url=URL.createObjectURL(new Blob([data],{type:mime+';charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}};
+$('xjson').disabled=false;$('xcsv').disabled=false;
 
 const stamp=()=>nowL().replace(/[-:]/g,'').replace('T','-');
 async function exportAs(kind){
@@ -276,7 +284,7 @@ async function exportAs(kind){
     data='\uFEFF'+[head,...c.rows.map(r=>[r.no,q(r.time.replace('T',' ')),LBL[r.r],AL[r.a],S.mode==='comp'?'compounding':'fixed',S.cap,S.risk,S.rr,r.before.toFixed(2),r.risk.toFixed(2),r.rew.toFixed(2),r.pl.toFixed(2),r.after.toFixed(2)].join(','))].join('\n');
     name=`backtest-${stamp()}.csv`;
   }
-  try{await DL.save({filename:name,data});say('✅ File siap disimpan: '+name)}
+  try{await DL.save({filename:name,data});say('✅ File diekspor: '+name)}
   catch(e){say(e&&e.code==='declined'?'Ekspor dibatalkan.':'⚠️ Gagal ekspor ('+((e&&e.code)||'error')+').')}
 }
 $('xjson').addEventListener('click',()=>exportAs('json'));
@@ -345,14 +353,22 @@ Format jawaban: markdown dengan judul "## ", **tebal**, dan bullet "- ". Susun p
 function md(t){
   return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').split('\n').map(l=>/^#{1,4} /.test(l)?'<h3>'+l.replace(/^#+ /,'')+'</h3>':/^\s*[-*] /.test(l)?'<li>'+l.replace(/^\s*[-*] /,'')+'</li>':l.trim()===''?'':'<p>'+l+'</p>').join('');
 }
+async function copyPrompt(){
+  const c=calc();
+  if(!c.rows.length){$('ai').innerHTML='<p class="mut">Tambahkan minimal 1 trade dulu.</p>';return}
+  const t=buildPrompt(c);let ok=false;
+  try{await navigator.clipboard.writeText(t);ok=true}catch(e){}
+  $('ai').innerHTML='<p>'+(ok?'✅ Prompt tersalin. Buka Claude (atau AI lain), lalu tempel (paste) untuk mendapat analisis super detail.':'⚠️ Salin manual teks di bawah, lalu tempel ke Claude / AI lain.')+'</p><textarea id="pt" readonly rows="8"></textarea>';
+  const ta=$('pt');ta.value=t;if(!ok){ta.focus();ta.select()}
+}
 let SM=null,ctl=null;
 (async()=>{
   try{SM=window.claude&&claude.use?await claude.use('sample'):null}catch(e){SM=null}
-  if(SM)$('aibtn').disabled=false;else $('ai').innerHTML='<p class="mut">Analisis AI tidak tersedia di tampilan ini (buka lewat claude.ai).</p>';
+  $('aibtn').disabled=false;if(!SM)$('aibtn').textContent='📋 Salin Prompt AI';
 })();
 $('aistop').addEventListener('click',()=>{if(ctl)ctl.abort()});
 $('aibtn').addEventListener('click',async()=>{
-  if(!SM)return;
+  if(!SM){copyPrompt();return}
   const c=calc();
   if(!c.rows.length){$('ai').innerHTML='<p class="mut">Tambahkan minimal 1 trade dulu.</p>';return}
   ctl=new AbortController();
