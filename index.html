@@ -11,9 +11,9 @@
 <meta name="apple-mobile-web-app-title" content="Backtest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📊%3C/text%3E%3C/svg%3E">
 <style>
-:root{--bg:#e0e5ec;--ink:#3d4852;--mut:#7b8794;--sd:#a3b1c6;--sl:#fff;--line:rgba(128,128,128,.3);--acc:#0e7490;--win:#15803d;--loss:#dc2626;--be:#64748b;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#2a2e35;--ink:#e6e9ef;--mut:#9aa3b2;--sd:#1a1d22;--sl:#3a404a;--acc:#22d3ee;--win:#4ade80;--loss:#f87171;--be:#94a3b8;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#2a2e35;--ink:#e6e9ef;--mut:#9aa3b2;--sd:#1a1d22;--sl:#3a404a;--acc:#22d3ee;--win:#4ade80;--loss:#f87171;--be:#94a3b8;color-scheme:dark}
+:root{--bg:#e0e5ec;--ink:#3d4852;--mut:#7b8794;--sd:#a3b1c6;--sl:#fff;--line:rgba(128,128,128,.3);--acc:#0e7490;--win:#15803d;--loss:#dc2626;--be:#64748b;--buy:#2563eb;--sell:#ea580c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#2a2e35;--ink:#e6e9ef;--mut:#9aa3b2;--sd:#1a1d22;--sl:#3a404a;--acc:#22d3ee;--win:#4ade80;--loss:#f87171;--be:#94a3b8;--buy:#60a5fa;--sell:#fb923c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#2a2e35;--ink:#e6e9ef;--mut:#9aa3b2;--sd:#1a1d22;--sl:#3a404a;--acc:#22d3ee;--win:#4ade80;--loss:#f87171;--be:#94a3b8;--buy:#60a5fa;--sell:#fb923c;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px max(16px,env(safe-area-inset-right)) 28px max(16px,env(safe-area-inset-left));transition:background .3s,color .3s}
@@ -65,6 +65,7 @@ h3{font-size:.9rem;margin:18px 0 6px;color:var(--acc)}
 .pst{margin-bottom:14px;font-size:.85rem}.pst summary{cursor:pointer;color:var(--mut);padding:6px 0}
 .pst textarea{display:block;width:100%;margin:8px 0 12px;padding:12px;border:0;border-radius:14px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;resize:vertical;box-shadow:inset 5px 5px 10px var(--sd),inset -5px -5px 10px var(--sl)}
 #ai textarea{display:block;width:100%;margin-top:8px;padding:10px;border:0;border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px;box-shadow:inset 3px 3px 6px var(--sd),inset -3px -3px 6px var(--sl)}
+.pb{color:var(--buy)}.ps{color:var(--sell)}.px{color:var(--mut)}
 @media(max-width:640px){
 body{padding-top:14px}
 h1{font-size:1.2rem}
@@ -101,8 +102,8 @@ td:last-child:not([colspan]){display:block;padding-top:8px}td:last-child button{
 
 <div class="card">
 <h2>📝 Input Trade</h2>
-<label for="dt">Waktu (24 jam) &amp; Area</label>
-<div class="tr"><input id="dt" type="date" aria-label="Tanggal"><div class="hm"><input id="hh" inputmode="numeric" maxlength="2" placeholder="JJ" aria-label="Jam 0-23"><span>:</span><input id="mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Menit 0-59"></div><select id="area" aria-label="Area"><option value="R">🔴 Area Resisten</option><option value="S">🟢 Area Support</option><option value="N" selected>⚪ Netral</option></select></div>
+<label for="dt">Waktu (24 jam), Posisi &amp; Area</label>
+<div class="tr"><input id="dt" type="date" aria-label="Tanggal"><div class="hm"><input id="hh" inputmode="numeric" maxlength="2" placeholder="JJ" aria-label="Jam 0-23"><span>:</span><input id="mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Menit 0-59"></div><select id="pos" aria-label="Posisi"><option value="B">🔵 BUY (Long)</option><option value="S">🟠 SELL (Short)</option></select><select id="area" aria-label="Area"><option value="R">🔴 Area Resisten</option><option value="S">🟢 Area Support</option><option value="N" selected>⚪ Netral</option></select></div>
 <div class="btns">
 <button class="bw" data-r="W">✅ Profit</button>
 <button class="bl" data-r="L">❌ Loss</button>
@@ -136,7 +137,7 @@ td:last-child:not([colspan]){display:block;padding-top:8px}td:last-child button{
 <div class="imp"><select id="impm" aria-label="Mode impor"><option value="replace">Impor: ganti data</option><option value="merge">Impor: gabung ke data</option></select><button id="imp">⬆ Impor File</button><input id="impf" type="file" accept=".json,.csv,application/json,text/csv,text/plain" hidden></div>
 <details class="pst"><summary>📋 Impor dari teks (tempel JSON/CSV)</summary><textarea id="paste" rows="5" placeholder="Tempel isi file JSON atau CSV di sini"></textarea><button id="imptxt">⬆ Impor Teks</button></details>
 <div class="tw"><table>
-<thead><tr><th>#</th><th>Waktu</th><th>Hasil</th><th>Area</th><th>Modal Sebelum</th><th>Risk</th><th>Reward</th><th>P/L</th><th>Modal Setelah</th><th></th></tr></thead>
+<thead><tr><th>#</th><th>Waktu</th><th>Posisi</th><th>Hasil</th><th>Area</th><th>Modal Sebelum</th><th>Risk</th><th>Reward</th><th>P/L</th><th>Modal Setelah</th><th></th></tr></thead>
 <tbody id="tb"></tbody>
 </table></div>
 </div>
@@ -172,7 +173,7 @@ function calc(){
     const before=cap;cap=r2(cap+pl);
     if(cap>peak)peak=cap;else if(peak>0)dd=Math.max(dd,(peak-cap)/peak*100);
     if(t.r==='W'){w++;gw+=pl;run=0}else if(t.r==='L'){l++;gl-=pl;run++;mx=Math.max(mx,run)}else b++;
-    return{no:i+1,id:t.id,time:t.time,r:t.r,a:t.a==='R'||t.a==='S'?t.a:'N',before,risk,rew,pl,after:cap};
+    return{no:i+1,id:t.id,time:t.time,r:t.r,a:t.a==='R'||t.a==='S'?t.a:'N',p:t.p==='B'||t.p==='S'?t.p:'-',before,risk,rew,pl,after:cap};
   });
   return{rows,cap,w,l,b,gw,gl,dd,mx};
 }
@@ -203,7 +204,7 @@ function render(){
   }
 
   // table (terbaru di atas)
-  $('tb').innerHTML=n?[...c.rows].reverse().map(r=>`<tr><td class="mut">${r.no}</td><td>${esc(r.time.replace('T',' '))}</td><td><span class="tag ${r.r}">${LBL[r.r]}</span></td><td><span class="tag ${r.a==='R'?'L':r.a==='S'?'W':'B'}">${AL[r.a]}</span></td><td>${fm(r.before)}</td><td class="mut">${fm(r.risk)}</td><td class="mut">${fm(r.rew)}</td><td class="${r.pl>0?'pos':r.pl<0?'neg':'mut'}"><b>${sg(r.pl)}</b></td><td><b>${fm(r.after)}</b></td><td><button class="del" data-del="${r.id}">Hapus</button></td></tr>`).join(''):'<tr><td colspan="10" class="mut" style="text-align:center;padding:20px">Belum ada trade. Isi waktu lalu pilih hasilnya di atas.</td></tr>';
+  $('tb').innerHTML=n?[...c.rows].reverse().map(r=>`<tr><td class="mut">${r.no}</td><td>${esc(r.time.replace('T',' '))}</td><td><span class="tag ${r.p==='B'?'pb':r.p==='S'?'ps':'px'}">${PL[r.p]}</span></td><td><span class="tag ${r.r}">${LBL[r.r]}</span></td><td><span class="tag ${r.a==='R'?'L':r.a==='S'?'W':'B'}">${AL[r.a]}</span></td><td>${fm(r.before)}</td><td class="mut">${fm(r.risk)}</td><td class="mut">${fm(r.rew)}</td><td class="${r.pl>0?'pos':r.pl<0?'neg':'mut'}"><b>${sg(r.pl)}</b></td><td><b>${fm(r.after)}</b></td><td><button class="del" data-del="${r.id}">Hapus</button></td></tr>`).join(''):'<tr><td colspan="11" class="mut" style="text-align:center;padding:20px">Belum ada trade. Isi waktu lalu pilih hasilnya di atas.</td></tr>';
   const HL=[...document.querySelectorAll('thead th')].map(t=>t.textContent);
   document.querySelectorAll('#tb td').forEach((td,i)=>{td.dataset.l=td.hasAttribute('colspan')?'':HL[i%HL.length]});
   renderEval(c);
@@ -213,8 +214,8 @@ function render(){
 function add(r){
   const t=getTime();
   if(!t){say('⚠️ Isi tanggal, jam (00–23) dan menit (00–59) dengan benar.');return}
-  S.trades.push({id:++S.nid,time:t,r,a:$('area').value});
-  persist();render();say('Trade ditambahkan: '+LBL[r]+' · '+t.replace('T',' '));
+  S.trades.push({id:++S.nid,time:t,r,a:$('area').value,p:$('pos').value});
+  persist();render();say('Trade ditambahkan: '+PN[$('pos').value].toUpperCase()+' '+LBL[r]+' · '+t.replace('T',' '));
 }
 
 document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',()=>add(b.dataset.r)));
@@ -275,13 +276,13 @@ async function exportAs(kind){
       format:'backtest-journal',version:2,exported_at:new Date().toISOString(),
       config:{initial_capital:S.cap,risk_percent:S.risk,reward_ratio:S.rr,risk_mode:S.mode==='comp'?'compounding':'fixed'},
       summary:{final_capital:+c.cap.toFixed(2),net_pl:+(c.cap-S.cap).toFixed(2),total_trades:c.rows.length,wins:c.w,losses:c.l,breakeven:c.b,winrate_pct:+(dec?c.w/dec*100:0).toFixed(2),profit_factor:c.gl>0?+(c.gw/c.gl).toFixed(2):null,max_drawdown_pct:+c.dd.toFixed(2),max_loss_streak:c.mx},
-      trades:c.rows.map(r=>({no:r.no,time:r.time,result:LBL[r.r],area:AL[r.a],capital_before:+r.before.toFixed(2),risk:+r.risk.toFixed(2),reward:+r.rew.toFixed(2),pl:+r.pl.toFixed(2),capital_after:+r.after.toFixed(2)}))
+      trades:c.rows.map(r=>({no:r.no,time:r.time,position:PX[r.p]||null,result:LBL[r.r],area:AL[r.a],capital_before:+r.before.toFixed(2),risk:+r.risk.toFixed(2),reward:+r.rew.toFixed(2),pl:+r.pl.toFixed(2),capital_after:+r.after.toFixed(2)}))
     },null,2);
     name=`backtest-${stamp()}.json`;
   }else{
     const q=v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
-    const head='no,waktu,hasil,area,mode,modal_awal,risk_persen,rr,modal_sebelum,risk,reward,pl,modal_setelah';
-    data='\uFEFF'+[head,...c.rows.map(r=>[r.no,q(r.time.replace('T',' ')),LBL[r.r],AL[r.a],S.mode==='comp'?'compounding':'fixed',S.cap,S.risk,S.rr,r.before.toFixed(2),r.risk.toFixed(2),r.rew.toFixed(2),r.pl.toFixed(2),r.after.toFixed(2)].join(','))].join('\n');
+    const head='no,waktu,posisi,hasil,area,mode,modal_awal,risk_persen,rr,modal_sebelum,risk,reward,pl,modal_setelah';
+    data='\uFEFF'+[head,...c.rows.map(r=>[r.no,q(r.time.replace('T',' ')),PX[r.p],LBL[r.r],AL[r.a],S.mode==='comp'?'compounding':'fixed',S.cap,S.risk,S.rr,r.before.toFixed(2),r.risk.toFixed(2),r.rew.toFixed(2),r.pl.toFixed(2),r.after.toFixed(2)].join(','))].join('\n');
     name=`backtest-${stamp()}.csv`;
   }
   try{await DL.save({filename:name,data});say('✅ File diekspor: '+name)}
@@ -292,6 +293,8 @@ $('xcsv').addEventListener('click',()=>exportAs('csv'));
 
 // evaluasi & AI
 const AL={R:'Resisten',S:'Support',N:'Netral'};
+const PN={B:'Buy',S:'Sell','-':'-'},PL={B:'▲ BUY',S:'▼ SELL','-':'–'},PX={B:'BUY',S:'SELL','-':''};
+const COMBO=[];['B','S'].forEach(p=>['S','R','N'].forEach(a=>COMBO.push([p+a,PN[p]+' di '+(a==='N'?'Netral':'Area '+AL[a])])));
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 function grp(rows,key,names){
   return names.map(([k,nm])=>{
@@ -302,7 +305,9 @@ function grp(rows,key,names){
 const groups=rows=>({
   area:grp(rows,x=>x.a,['R','S','N'].map(k=>[k,'Area '+AL[k]])),
   jam:grp(rows,x=>Math.floor(+x.time.slice(11,13)/6),[0,1,2,3].map(k=>[k,['00–05','06–11','12–17','18–23'][k]])),
-  hari:grp(rows,x=>new Date(x.time.slice(0,10)+'T12:00').getDay(),DAYS.map((d,i)=>[i,d]))
+  hari:grp(rows,x=>new Date(x.time.slice(0,10)+'T12:00').getDay(),DAYS.map((d,i)=>[i,d])),
+  pos:grp(rows,x=>x.p,[['B','Buy'],['S','Sell'],['-','Tanpa posisi']]),
+  combo:grp(rows,x=>x.p+x.a,COMBO)
 });
 const gview=(t,g)=>g.length?`<h3>${t}</h3><div class="bk h"><span>Grup</span><span>Trade</span><span>W/L/BE</span><span>WR</span><span>Net P/L</span></div>`+g.map(x=>`<div class="bk"><span>${x.nm}</span><span>${x.n}</span><span>${x.w}/${x.l}/${x.b}</span><span>${x.wr==null?'-':x.wr.toFixed(0)+'%'}</span><span class="${x.net>0?'pos':x.net<0?'neg':'mut'}">${sg(x.net)}</span></div>`).join(''):'';
 function renderEval(c){
@@ -319,7 +324,10 @@ function renderEval(c){
   ];
   const ar=[...G.area].sort((a,b)=>b.net-a.net);
   if(ar.length>1)L.push(['📍',`Area terbaik: ${ar[0].nm} (${sg(ar[0].net)}); terlemah: ${ar[ar.length-1].nm} (${sg(ar[ar.length-1].net)}).`]);
-  el.innerHTML=L.map(x=>`<div class="ev"><span>${x[0]}</span><span>${x[1]}</span></div>`).join('')+gview('Per Area',G.area)+gview('Per Blok Jam',G.jam)+gview('Per Hari',G.hari);
+  const po=G.pos.filter(x=>x.nm!=='Tanpa posisi').sort((a,b)=>b.net-a.net),cx=[...G.combo].sort((a,b)=>b.net-a.net);
+  if(po.length>1)L.push(['🧭',`Posisi terbaik: ${po[0].nm} (${sg(po[0].net)}); terlemah: ${po[po.length-1].nm} (${sg(po[po.length-1].net)}).`]);
+  if(cx.length>1)L.push(['🎯',`Kombinasi terbaik: ${cx[0].nm} (${sg(cx[0].net)}, WR ${cx[0].wr==null?'-':cx[0].wr.toFixed(0)+'%'}); terlemah: ${cx[cx.length-1].nm} (${sg(cx[cx.length-1].net)}, WR ${cx[cx.length-1].wr==null?'-':cx[cx.length-1].wr.toFixed(0)+'%'}).`]);
+  el.innerHTML=L.map(x=>`<div class="ev"><span>${x[0]}</span><span>${x[1]}</span></div>`).join('')+gview('Per Area',G.area)+gview('Per Posisi',G.pos)+gview('Posisi × Area',G.combo)+gview('Per Blok Jam',G.jam)+gview('Per Hari',G.hari);
 }
 function buildPrompt(c){
   const d=c.w+c.l,wr=d?c.w/d:0,G=groups(c.rows);
@@ -331,17 +339,21 @@ KONFIGURASI: modal awal $${S.cap}, risk ${S.risk}% per trade, RR 1:${S.rr}, mode
 RINGKASAN: total ${c.rows.length} trade; W/L/BE ${c.w}/${c.l}/${c.b}; winrate W/(W+L) ${(wr*100).toFixed(1)}%; winrate impas ${(100/(1+S.rr)).toFixed(1)}%; expectancy ${(d?wr*S.rr-(1-wr):0).toFixed(2)}R; profit factor ${c.gl>0?(c.gw/c.gl).toFixed(2):'tak terhingga/0'}; net P/L ${(c.cap-S.cap).toFixed(2)}; modal akhir ${c.cap.toFixed(2)}; max drawdown ${c.dd.toFixed(1)}%; loss beruntun terbanyak ${c.mx}.
 AREA ENTRY (Resisten/Support/Netral):
 ${gt(G.area)}
+POSISI (Buy/Sell):
+${gt(G.pos)}
+POSISI x AREA (hasil Buy/Sell di tiap area):
+${gt(G.combo)}
 BLOK JAM (24 jam, waktu lokal):
 ${gt(G.jam)}
 HARI:
 ${gt(G.hari)}
-DAFTAR TRADE (no|waktu|hasil|area|P/L|modal setelah)${c.rows.length>400?' [400 terakhir dari '+c.rows.length+']':''}:
-${rows.map(r=>[r.no,r.time.replace('T',' '),LBL[r.r],AL[r.a],r.pl.toFixed(2),r.after.toFixed(2)].join('|')).join('\n')}
+DAFTAR TRADE (no|waktu|posisi|hasil|area|P/L|modal setelah)${c.rows.length>400?' [400 terakhir dari '+c.rows.length+']':''}:
+${rows.map(r=>[r.no,r.time.replace('T',' '),PX[r.p]||'-',LBL[r.r],AL[r.a],r.pl.toFixed(2),r.after.toFixed(2)].join('|')).join('\n')}
 
 Format jawaban: markdown dengan judul "## ", **tebal**, dan bullet "- ". Susun persis:
 ## 1. Ringkasan Eksekutif (skor 0-100 + verdict 2-3 kalimat)
 ## 2. Evaluasi Statistik (winrate vs impas, expectancy R, profit factor, signifikansi sampel, perkiraan rentang kepercayaan winrate dari jumlah trade, kualitas edge)
-## 3. Analisis Area (Resisten vs Support vs Netral: di mana edge dan kebocoran, selisih nyata atau cuma noise)
+## 3. Analisis Area & Posisi (Resisten/Support/Netral x Buy/Sell: kombinasi mana yang punya edge atau kebocoran, apakah ada bias arah Buy/Sell, selisih nyata atau cuma noise)
 ## 4. Analisis Waktu & Sesi (blok jam dan hari terbaik/terburuk, hati-hati sampel kecil)
 ## 5. Streak, Drawdown & Risiko (pola loss beruntun, risk of ruin kasar, skenario terburuk dengan risk saat ini, saran ukuran risk)
 ## 6. Perilaku & Disiplin (revenge trading, overtrading, clustering, hanya jika terlihat di data)
@@ -403,6 +415,7 @@ function parseCSV(txt){
 const num=v=>{const x=parseFloat(String(v).trim().replace(',','.'));return x>0?x:null};
 const normMode=v=>{v=String(v||'').toLowerCase();return v.startsWith('comp')?'comp':v.startsWith('fix')?'fix':null};
 const normR=v=>{v=String(v||'').trim().toUpperCase();return ['W','WIN','PROFIT','TP'].includes(v)?'W':['L','LOSS','LOSE','SL'].includes(v)?'L':['B','BE','NETRAL','NEUTRAL','BREAKEVEN'].includes(v)?'B':null};
+const normP=v=>{v=String(v||'').toLowerCase();return /buy|long|beli/.test(v)?'B':/sell|short|jual/.test(v)?'S':'-'};
 const normA=v=>{v=String(v||'').toLowerCase();return v.includes('resis')?'R':v.includes('supp')?'S':'N'};
 function normT(v){
   v=String(v||'').trim();
@@ -418,15 +431,15 @@ function parseImport(txt){
     const o=JSON.parse(txt),arr=Array.isArray(o)?o:o.trades,c=Array.isArray(o)?{}:(o.config||{});
     if(!Array.isArray(arr))throw new Error('Format JSON tidak dikenali');
     cfg={cap:num(c.initial_capital),risk:num(c.risk_percent),rr:num(c.reward_ratio),mode:normMode(c.risk_mode)};
-    arr.forEach(x=>{const t=normT(x&&x.time),r=normR(x&&x.result);t&&r?list.push({time:t,r,a:normA(x.area)}):bad++});
+    arr.forEach(x=>{const t=normT(x&&x.time),r=normR(x&&x.result);t&&r?list.push({time:t,r,a:normA(x.area),p:normP(x.position)}):bad++});
   }else{
     const rows=parseCSV(txt);
     if(rows.length<2)throw new Error('CSV kosong');
-    const H=rows[0].map(h=>h.trim().toLowerCase()),ix=n=>H.indexOf(n),it=ix('waktu'),ir=ix('hasil'),ia=ix('area');
+    const H=rows[0].map(h=>h.trim().toLowerCase()),ix=n=>H.indexOf(n),it=ix('waktu'),ir=ix('hasil'),ia=ix('area'),ip=ix('posisi');
     if(it<0||ir<0)throw new Error('kolom "waktu" dan "hasil" wajib ada');
     const g=n=>ix(n)>=0?rows[1][ix(n)]:null;
     cfg={cap:num(g('modal_awal')),risk:num(g('risk_persen')),rr:num(g('rr')),mode:normMode(g('mode'))};
-    rows.slice(1).forEach(x=>{const t=normT(x[it]),r=normR(x[ir]);t&&r?list.push({time:t,r,a:ia>=0?normA(x[ia]):'N'}):bad++});
+    rows.slice(1).forEach(x=>{const t=normT(x[it]),r=normR(x[ir]);t&&r?list.push({time:t,r,a:ia>=0?normA(x[ia]):'N',p:ip>=0?normP(x[ip]):'-'}):bad++});
   }
   return{cfg,list,bad};
 }
